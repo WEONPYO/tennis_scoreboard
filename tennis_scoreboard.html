@@ -594,6 +594,7 @@
       gamesA: 0, gamesB: 0,
       setsA: 0, setsB: 0,
       isTiebreak: false,
+      tiebreakFirstServer: null,
       currentServerTeam: 'A',
       serverIdxA: 0,
       serverIdxB: 0,
@@ -737,6 +738,7 @@
         gamesA: 0, gamesB: 0,
         setsA: 0, setsB: 0,
         isTiebreak: false,
+        tiebreakFirstServer: null,
         currentServerTeam: config.firstServeTeam,
         serverIdxA: 0, serverIdxB: 0,
         courtLeftTeam: 'A'
@@ -799,7 +801,7 @@
       const totalPts = state.ptsA + state.ptsB;
 
       if (totalPts % 2 === 1) switchServer();
-      if (config.courtChange === 'auto' && totalPts % 6 === 0) manualCourtChange(false);
+      if (config.courtChange === 'auto' && totalPts % 6 === 0) manualCourtChange(false, false);
 
       if ((state.ptsA >= 7 || state.ptsB >= 7) && Math.abs(state.ptsA - state.ptsB) >= 2) {
         winGame(state.ptsA > state.ptsB ? 'A' : 'B');
@@ -836,36 +838,56 @@
       
       const totalGames = state.gamesA + state.gamesB;
       if (config.courtChange === 'auto' && totalGames % 2 === 1 && !state.isTiebreak) {
-        manualCourtChange(false);
+        manualCourtChange(false, false);
       }
 
       if (state.isTiebreak) {
-        winSet(team);
+        // 타이브레이크로 세트가 끝난 경우: 다음 세트 서버/코트체인지는
+        // winSet()에서 tiebreakFirstServer 기준으로 별도 계산한다.
+        winSet(team, true);
       } else if (gWin >= config.gamesPerSet && (gWin - gLose) >= 2) {
-        winSet(team);
+        winSet(team, false);
       } else if (gWin === config.gamesPerSet && gLose === config.gamesPerSet) {
         state.isTiebreak = true;
         speak(`${gameAnnouncement}., , Tiebreak`);
         switchServer();
+        // 규칙: 다음 게임(즉 타이브레이크 첫 포인트)을 서브할 팀이 타이브레이크의 "최초 서버"
+        state.tiebreakFirstServer = state.currentServerTeam;
       } else {
         speak(gameAnnouncement);
         switchServer();
       }
     }
 
-    function winSet(team) {
+    function winSet(team, viaTiebreak = false) {
       const winnerCall = getTeamDisplayName(team);
       if (team === 'A') state.setsA++; else state.setsB++;
 
+      const tiebreakFirstServer = state.tiebreakFirstServer;
+
       state.gamesA = 0; state.gamesB = 0;
       state.isTiebreak = false;
+      state.tiebreakFirstServer = null;
 
       const sWin = team === 'A' ? state.setsA : state.setsB;
       if (sWin >= config.setsToWin) {
         speak(`Game, set and match, ${winnerCall}., , ${state.setsA} sets to ${state.setsB}`);
       } else {
         speak(`Set, ${winnerCall}., , ${state.setsA} sets to ${state.setsB}`);
-        switchServer();
+
+        if (viaTiebreak && tiebreakFirstServer) {
+          // 규칙: 타이브레이크에서 먼저 서브한 팀은 다음 세트 첫 게임에서 리시브한다.
+          // (포인트마다 누적 토글되는 switchServer()에 맡기면 최종 포인트 합의
+          //  홀/짝에 따라 결과가 뒤집히는 경우가 있어, 여기서 규칙대로 직접 지정한다.)
+          state.currentServerTeam = (tiebreakFirstServer === 'A') ? 'B' : 'A';
+
+          // 타이브레이크로 끝난 세트는 그 세트의 총 게임 수(6+6+타이브레이크 1게임=13)가
+          // 항상 홀수이므로, 세트가 끝나면 항상 코트체인지가 일어나야 한다.
+          // 기존 코드는 이 케이스를 누락했었다.
+          if (config.courtChange === 'auto') manualCourtChange(false, false);
+        } else {
+          switchServer();
+        }
       }
     }
 
@@ -883,8 +905,12 @@
       }
     }
 
-    function manualCourtChange(announce = true) {
-      saveState();
+    function manualCourtChange(announce = true, recordHistory = true) {
+      // recordHistory: 자동 코트체인지(게임 승리/타이브레이크 6포인트마다)는
+      // addPoint()에서 이미 saveState()를 호출했으므로 여기서 또 저장하면
+      // UNDO 스택에 기록이 중복 push되어 실행취소가 한 번에 안 되는 버그가 발생함.
+      // 사용자가 CHANGE COURT 버튼을 직접 눌렀을 때만(recordHistory=true) 별도 저장.
+      if (recordHistory) saveState();
       state.courtLeftTeam = (state.courtLeftTeam === 'A') ? 'B' : 'A';
       saveStateToStorage();
       render();
