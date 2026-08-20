@@ -385,10 +385,37 @@
     .modal-content {
       background: var(--card-bg); border-radius: 12px;
       padding: 20px; max-width: 420px; margin: 10px auto;
-      border: 1px solid #2e5941;
+      border: 1px solid #2e5941; position: relative;
     }
 
-    .modal h2 { color: var(--accent-yellow); font-size: 1.1rem; margin-bottom: 12px; }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .modal-header h2 {
+      color: var(--accent-yellow);
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .btn-close-modal {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .btn-close-modal:hover {
+      color: var(--accent-yellow);
+    }
+
     .modal h3 { color: var(--accent-yellow); font-size: 0.95rem; margin: 16px 0 8px 0; border-top: 1px dashed #2e5941; padding-top: 10px; }
     
     .setting-group { margin-bottom: 12px; }
@@ -475,7 +502,7 @@
     <button class="btn-action" onclick="undo()">CORRECTION</button>
     <button class="btn-action highlight" id="btn-toggle-serve" onclick="toggleServeTeam()">SERVE: TEAM A</button>
     <button class="btn-action" onclick="manualCourtChange()">CHANGE COURT</button>
-    <button class="btn-action" onclick="resetMatch()">RESET</button>
+    <button class="btn-action" onclick="confirmResetMatch()">RESET</button>
   </div>
 
   <div class="court-container">
@@ -506,7 +533,10 @@
 
   <div class="modal" id="settings-modal">
     <div class="modal-content">
-      <h2>Match Settings</h2>
+      <div class="modal-header">
+        <h2>Match Settings</h2>
+        <button class="btn-close-modal" id="btn-close-settings">&times;</button>
+      </div>
       
       <div class="setting-group">
         <label>Match Type</label>
@@ -728,13 +758,28 @@
     };
 
     function setupEvents() {
+      const modal = document.getElementById('settings-modal');
+      
       document.getElementById('btn-settings').onclick = () => {
         populateSettingsModal();
-        document.getElementById('settings-modal').style.display = 'block';
+        modal.style.display = 'block';
       };
+
+      document.getElementById('btn-close-settings').onclick = () => {
+        modal.style.display = 'none';
+      };
+
+      window.onclick = (event) => {
+        if (event.target === modal) {
+          modal.style.display = 'none';
+        }
+      };
+
       document.getElementById('btn-save-settings').onclick = () => {
-        saveSettings();
-        document.getElementById('settings-modal').style.display = 'none';
+        if (confirm("설정을 적용하고 경기 점수를 리셋하시겠습니까?")) {
+          saveSettings();
+          modal.style.display = 'none';
+        }
       };
     }
 
@@ -861,6 +906,12 @@
       saveStateToStorage();
       render();
       speakCall("Correction, ");
+    }
+
+    function confirmResetMatch() {
+      if (confirm("정말로 경기를 초기화하시겠습니까?")) {
+        resetMatch();
+      }
     }
 
     function resetMatch() {
@@ -1051,7 +1102,6 @@
           osc.type = 'sine';
           osc.frequency.setValueAtTime(440, audioCtx.currentTime);
           
-          // 블루투스 슬립모드를 깨우기 위한 거의 들리지 않는 미세한 오디오 신호 재생
           gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
           gain.gain.setValueAtTime(0.001, audioCtx.currentTime + durationSec);
 
@@ -1069,7 +1119,6 @@
     }
 
     async function speak(text) {
-      // 600ms 동안 무음 신호를 내보내 스피커를 깨운 후 TTS 재생
       await playWakeUpSound(600);
 
       if ('speechSynthesis' in window) {
@@ -1322,4 +1371,3 @@
   </script>
 </body>
 </html>
-
