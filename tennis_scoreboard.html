@@ -437,6 +437,63 @@
       border: none; border-radius: 6px; font-weight: bold; color: #000;
       cursor: pointer; margin-top: 15px; font-size: 0.9rem;
     }
+
+    /* Custom Confirm Dialog Modal */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 150;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .confirm-box {
+      background: var(--card-bg);
+      border: 1px solid #2e5941;
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+    }
+
+    .confirm-box p {
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: #fff;
+      margin-bottom: 20px;
+      white-space: pre-line;
+    }
+
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .confirm-btns button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-confirm-yes {
+      background: var(--accent-yellow);
+      color: #000;
+    }
+
+    .btn-confirm-no {
+      background: #1c3829;
+      color: #fff;
+      border: 1px solid #2e5941 !important;
+    }
   </style>
 </head>
 <body>
@@ -652,6 +709,17 @@
     </div>
   </div>
 
+  <!-- Custom Confirm Dialog HTML -->
+  <div class="confirm-modal" id="custom-confirm-modal">
+    <div class="confirm-box">
+      <p id="confirm-message">안내문구가 여기에 표시됩니다.</p>
+      <div class="confirm-btns">
+        <button class="btn-confirm-yes" id="btn-confirm-yes">확인</button>
+        <button class="btn-confirm-no" id="btn-confirm-no">취소</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let config = {
       type: 'doubles',
@@ -693,6 +761,35 @@
     let touchStartY = 0;
     let touchEndX = 0;
     let touchEndY = 0;
+
+    function showCustomConfirm(message, onConfirm) {
+      const confirmModal = document.getElementById('custom-confirm-modal');
+      const confirmMsg = document.getElementById('confirm-message');
+      const btnYes = document.getElementById('btn-confirm-yes');
+      const btnNo = document.getElementById('btn-confirm-no');
+
+      confirmMsg.innerText = message;
+      confirmModal.style.display = 'flex';
+
+      const handleYes = () => {
+        cleanup();
+        confirmModal.style.display = 'none';
+        onConfirm();
+      };
+
+      const handleNo = () => {
+        cleanup();
+        confirmModal.style.display = 'none';
+      };
+
+      const cleanup = () => {
+        btnYes.removeEventListener('click', handleYes);
+        btnNo.removeEventListener('click', handleNo);
+      };
+
+      btnYes.addEventListener('click', handleYes);
+      btnNo.addEventListener('click', handleNo);
+    }
 
     function loadStorage() {
       const savedConfig = localStorage.getItem('tennis_config');
@@ -776,22 +873,22 @@
       };
 
       document.getElementById('btn-save-settings').onclick = () => {
-        if (confirm("설정을 적용하고 경기 점수를 리셋하시겠습니까?")) {
+        showCustomConfirm("설정을 적용하고 경기 점수를 초기화하시겠습니까?", () => {
           saveSettings();
           modal.style.display = 'none';
-        }
+        });
       };
     }
 
     function setupSwipeEvents() {
       window.addEventListener('touchstart', (e) => {
-        if (e.target.closest('.modal')) return;
+        if (e.target.closest('.modal') || e.target.closest('.confirm-modal')) return;
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
       }, { passive: true });
 
       window.addEventListener('touchend', (e) => {
-        if (e.target.closest('.modal')) return;
+        if (e.target.closest('.modal') || e.target.closest('.confirm-modal')) return;
         touchEndX = e.changedTouches[0].screenX;
         touchEndY = e.changedTouches[0].screenY;
         handleSwipeGesture();
@@ -909,9 +1006,9 @@
     }
 
     function confirmResetMatch() {
-      if (confirm("정말로 경기를 초기화하시겠습니까?")) {
+      showCustomConfirm("정말로 경기를 초기화하시겠습니까?", () => {
         resetMatch();
-      }
+      });
     }
 
     function resetMatch() {
