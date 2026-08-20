@@ -709,7 +709,6 @@
     </div>
   </div>
 
-  <!-- Custom Confirm Dialog HTML -->
   <div class="confirm-modal" id="custom-confirm-modal">
     <div class="confirm-box">
       <p id="confirm-message">안내문구가 여기에 표시됩니다.</p>
@@ -762,6 +761,34 @@
     let touchEndX = 0;
     let touchEndY = 0;
 
+    // --- Screen Wake Lock 관련 함수 ---
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { 
+            wakeLock = null; 
+          });
+        }
+      } catch (err) {
+        // 브라우저 권한 제한 또는 절전 모드 특성에 의한 오류 무시
+      }
+    }
+
+    // 탭을 전환했다가 다시 돌아왔을 때 Wake Lock 재요청
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
+
+    // 화면 터치 시 Wake Lock이 해제되어 있다면 즉시 다시 요청
+    window.addEventListener('touchstart', () => {
+      if (!wakeLock) {
+        requestWakeLock();
+      }
+    }, { passive: true });
+
     function showCustomConfirm(message, onConfirm) {
       const confirmModal = document.getElementById('custom-confirm-modal');
       const confirmMsg = document.getElementById('confirm-message');
@@ -810,15 +837,6 @@
       localStorage.setItem('tennis_state', JSON.stringify(state));
     }
 
-    async function requestWakeLock() {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
-          wakeLock.addEventListener('release', () => { wakeLock = null; });
-        }
-      } catch (err) {}
-    }
-
     function toggleFullscreen() {
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         const elem = document.documentElement;
@@ -848,6 +866,7 @@
       setupEvents();
       setupSwipeEvents();
       populateSettingsModal();
+      requestWakeLock(); // 페이지 최초 로드 시 화면 잠금 해제 요청
       if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
       }
