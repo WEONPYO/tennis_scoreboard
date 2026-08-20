@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Tennis Scoreboard - Wimbledon Style</title>
+  <title>Tennis Scoreboard - Custom Swipes</title>
   <style>
     :root {
       --bg-color: #0c1911;
@@ -35,6 +35,7 @@
       max-width: 500px;
       margin: 0 auto;
       overflow: hidden;
+      touch-action: none;
     }
 
     #fs-overlay {
@@ -52,15 +53,8 @@
 
     #fs-overlay h2 {
       color: var(--accent-yellow);
-      font-size: 1.6rem;
-      margin-bottom: 10px;
-    }
-
-    #fs-overlay p {
-      color: #a0aec0;
-      font-size: 0.95rem;
+      font-size: 1.8rem;
       margin-bottom: 25px;
-      line-height: 1.5;
     }
 
     .btn-fullscreen-start {
@@ -120,10 +114,11 @@
       position: relative;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
       overflow: hidden;
+      transition: order 0.3s ease;
     }
 
-    .team-a { background: linear-gradient(135deg, var(--team-a-color), #401438); }
-    .team-b { background: linear-gradient(135deg, var(--team-b-color), #003319); }
+    .team-card.team-a { background: linear-gradient(135deg, var(--team-a-color), #401438); }
+    .team-card.team-b { background: linear-gradient(135deg, var(--team-b-color), #003319); }
 
     .team-header {
       display: flex;
@@ -133,7 +128,7 @@
     }
 
     .team-info { display: flex; align-items: center; gap: 8px; }
-    
+
     .team-title-row {
       display: flex;
       align-items: center;
@@ -143,7 +138,6 @@
     .team-name { font-size: 1.1rem; font-weight: 800; }
     .player-names { font-size: 0.75rem; opacity: 0.85; }
 
-    /* 코트 방향 화살표 스타일 */
     .court-arrow {
       font-size: 1rem;
       font-weight: 900;
@@ -177,18 +171,18 @@
       container-type: size;
     }
 
-    .games-score { 
-      font-size: 2.2rem; 
-      font-weight: 800; 
+    .games-score {
+      font-size: 2.2rem;
+      font-weight: 800;
       opacity: 0.8;
       position: absolute;
       left: 10px;
     }
-    
-    .point-score { 
-      font-size: 80cqh; 
-      font-weight: 900; 
-      text-shadow: 4px 4px 8px rgba(0,0,0,0.7); 
+
+    .point-score {
+      font-size: 80cqh;
+      font-weight: 900;
+      text-shadow: 4px 4px 8px rgba(0,0,0,0.7);
       line-height: 1;
       letter-spacing: -2px;
       text-align: center;
@@ -215,7 +209,7 @@
 
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1.2fr 1.2fr 1fr;
+      grid-template-columns: 1.2fr 1.2fr 1.2fr 1fr;
       gap: 5px;
       padding: 0 6px 6px 6px;
     }
@@ -224,7 +218,7 @@
       background-color: #1c3829; color: white;
       border: 1px solid #2e5941;
       padding: 8px 0; border-radius: 6px;
-      font-size: 0.75rem; font-weight: bold;
+      font-size: 0.72rem; font-weight: bold;
       cursor: pointer; text-align: center;
     }
 
@@ -390,11 +384,13 @@
 
     .modal-content {
       background: var(--card-bg); border-radius: 12px;
-      padding: 20px; max-width: 400px; margin: 10px auto;
+      padding: 20px; max-width: 420px; margin: 10px auto;
       border: 1px solid #2e5941;
     }
 
     .modal h2 { color: var(--accent-yellow); font-size: 1.1rem; margin-bottom: 12px; }
+    .modal h3 { color: var(--accent-yellow); font-size: 0.95rem; margin: 16px 0 8px 0; border-top: 1px dashed #2e5941; padding-top: 10px; }
+    
     .setting-group { margin-bottom: 12px; }
     .setting-group label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 4px; }
     .setting-group select, .setting-group input {
@@ -403,18 +399,23 @@
     }
     .input-row { display: flex; gap: 6px; margin-top: 4px; }
 
+    .swipe-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
     .btn-save {
       width: 100%; padding: 10px; background: var(--accent-yellow);
       border: none; border-radius: 6px; font-weight: bold; color: #000;
-      cursor: pointer; margin-top: 10px; font-size: 0.9rem;
+      cursor: pointer; margin-top: 15px; font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
 
   <div id="fs-overlay">
-    <h2>WIMBLEDON SCOREBOARD</h2>
-    <p>공식 음성안내 및 최적화된 화면 구성을 위해<br>전체화면으로 시작합니다.</p>
+    <h2>WP TENNIS SCOREBOARD</h2>
     <button class="btn-fullscreen-start" onclick="startFullscreenApp()">전체화면으로 시작하기</button>
   </div>
 
@@ -426,8 +427,8 @@
     </div>
   </header>
 
-  <div class="scoreboard">
-    <div class="team-card team-a" id="card-team-a">
+  <div class="scoreboard" id="scoreboard-container">
+    <div class="team-card team-a" id="card-team-a" style="order: 1;">
       <div class="team-header">
         <div class="team-info">
           <span class="serve-ball" id="serve-a"></span>
@@ -448,7 +449,7 @@
       <button class="btn-score-up" onclick="addPoint('A')"></button>
     </div>
 
-    <div class="team-card team-b" id="card-team-b">
+    <div class="team-card team-b" id="card-team-b" style="order: 2;">
       <div class="team-header">
         <div class="team-info">
           <span class="serve-ball" id="serve-b"></span>
@@ -471,7 +472,7 @@
   </div>
 
   <div class="controls">
-    <button class="btn-action" onclick="undo()">UNDO</button>
+    <button class="btn-action" onclick="undo()">CORRECTION</button>
     <button class="btn-action highlight" id="btn-toggle-serve" onclick="toggleServeTeam()">SERVE: TEAM A</button>
     <button class="btn-action" onclick="manualCourtChange()">CHANGE COURT</button>
     <button class="btn-action" onclick="resetMatch()">RESET</button>
@@ -545,7 +546,7 @@
         <label>Deuce Rule</label>
         <select id="set-deuce">
           <option value="no-ad">No-Ad (Sudden Death)</option>
-          <option value="ad" selected>Advantage (Standard Wimbledon)</option>
+          <option value="ad" selected>Advantage (Standard)</option>
         </select>
       </div>
 
@@ -573,6 +574,50 @@
         </div>
       </div>
 
+      <h3>Swipe Gesture Settings</h3>
+      <div class="swipe-grid">
+        <div class="setting-group">
+          <label>Swipe Up (위로)</label>
+          <select id="swipe-up">
+            <option value="right_score">우측팀 득점</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Swipe Down (아래로)</label>
+          <select id="swipe-down">
+            <option value="left_score">좌측팀 득점</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Swipe Left (왼쪽으로)</label>
+          <select id="swipe-left">
+            <option value="court_change" selected>코트 체인지</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Swipe Right (오른쪽으로)</label>
+          <select id="swipe-right">
+            <option value="undo" selected>Correction (점수 정정)</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+      </div>
+
       <button class="btn-save" id="btn-save-settings">Apply & Reset Match</button>
     </div>
   </div>
@@ -586,7 +631,13 @@
       deuceRule: 'ad',
       courtChange: 'manual',
       playersA: ['A. Murray', 'J. Peers'],
-      playersB: ['R. Nadal', 'M. Lopez']
+      playersB: ['R. Nadal', 'M. Lopez'],
+      swipes: {
+        up: 'right_score',
+        down: 'left_score',
+        left: 'court_change',
+        right: 'undo'
+      }
     };
 
     let state = {
@@ -608,10 +659,15 @@
     let wakeLock = null;
     let audioCtx = null;
 
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
     function loadStorage() {
       const savedConfig = localStorage.getItem('tennis_config');
       if (savedConfig) {
-        try { config = JSON.parse(savedConfig); } catch(e) {}
+        try { config = { ...config, ...JSON.parse(savedConfig) }; } catch(e) {}
       }
       const savedState = localStorage.getItem('tennis_state');
       if (savedState) {
@@ -663,7 +719,11 @@
     window.onload = () => {
       loadStorage();
       setupEvents();
+      setupSwipeEvents();
       populateSettingsModal();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+      }
       render();
     };
 
@@ -678,6 +738,64 @@
       };
     }
 
+    function setupSwipeEvents() {
+      window.addEventListener('touchstart', (e) => {
+        if (e.target.closest('.modal')) return;
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+      }, { passive: true });
+
+      window.addEventListener('touchend', (e) => {
+        if (e.target.closest('.modal')) return;
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+        handleSwipeGesture();
+      }, { passive: true });
+    }
+
+    function handleSwipeGesture() {
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+      const minDistance = 40;
+
+      if (Math.abs(deltaX) < minDistance && Math.abs(deltaY) < minDistance) {
+        return;
+      }
+
+      let action = 'none';
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        action = deltaX < 0 ? config.swipes.left : config.swipes.right;
+      } else {
+        action = deltaY < 0 ? config.swipes.up : config.swipes.down;
+      }
+
+      executeSwipeAction(action);
+    }
+
+    function executeSwipeAction(action) {
+      const leftTeam = state.courtLeftTeam;
+      const rightTeam = (leftTeam === 'A') ? 'B' : 'A';
+
+      switch (action) {
+        case 'left_score':
+          addPoint(leftTeam);
+          break;
+        case 'right_score':
+          addPoint(rightTeam);
+          break;
+        case 'court_change':
+          manualCourtChange();
+          break;
+        case 'undo':
+          undo();
+          break;
+        case 'none':
+        default:
+          break;
+      }
+    }
+
     function populateSettingsModal() {
       document.getElementById('set-type').value = config.type;
       document.getElementById('set-first-serve').value = config.firstServeTeam;
@@ -689,6 +807,12 @@
       document.getElementById('p-a2').value = config.playersA[1] || '';
       document.getElementById('p-b1').value = config.playersB[0] || '';
       document.getElementById('p-b2').value = config.playersB[1] || '';
+
+      document.getElementById('swipe-up').value = config.swipes.up || 'right_score';
+      document.getElementById('swipe-down').value = config.swipes.down || 'left_score';
+      document.getElementById('swipe-left').value = config.swipes.left || 'court_change';
+      document.getElementById('swipe-right').value = config.swipes.right || 'undo';
+
       togglePlayerInputs();
     }
 
@@ -715,6 +839,13 @@
         document.getElementById('p-b2').value || 'B2'
       ];
 
+      config.swipes = {
+        up: document.getElementById('swipe-up').value,
+        down: document.getElementById('swipe-down').value,
+        left: document.getElementById('swipe-left').value,
+        right: document.getElementById('swipe-right').value
+      };
+
       saveConfigToStorage();
       resetMatch();
     }
@@ -729,7 +860,7 @@
       state = historyStack.pop();
       saveStateToStorage();
       render();
-      speak("Undo");
+      speakCall("Correction, ");
     }
 
     function resetMatch() {
@@ -842,8 +973,6 @@
       }
 
       if (state.isTiebreak) {
-        // 타이브레이크로 세트가 끝난 경우: 다음 세트 서버/코트체인지는
-        // winSet()에서 tiebreakFirstServer 기준으로 별도 계산한다.
         winSet(team, true);
       } else if (gWin >= config.gamesPerSet && (gWin - gLose) >= 2) {
         winSet(team, false);
@@ -851,7 +980,6 @@
         state.isTiebreak = true;
         speak(`${gameAnnouncement}., , Tiebreak`);
         switchServer();
-        // 규칙: 다음 게임(즉 타이브레이크 첫 포인트)을 서브할 팀이 타이브레이크의 "최초 서버"
         state.tiebreakFirstServer = state.currentServerTeam;
       } else {
         speak(gameAnnouncement);
@@ -876,14 +1004,7 @@
         speak(`Set, ${winnerCall}., , ${state.setsA} sets to ${state.setsB}`);
 
         if (viaTiebreak && tiebreakFirstServer) {
-          // 규칙: 타이브레이크에서 먼저 서브한 팀은 다음 세트 첫 게임에서 리시브한다.
-          // (포인트마다 누적 토글되는 switchServer()에 맡기면 최종 포인트 합의
-          //  홀/짝에 따라 결과가 뒤집히는 경우가 있어, 여기서 규칙대로 직접 지정한다.)
           state.currentServerTeam = (tiebreakFirstServer === 'A') ? 'B' : 'A';
-
-          // 타이브레이크로 끝난 세트는 그 세트의 총 게임 수(6+6+타이브레이크 1게임=13)가
-          // 항상 홀수이므로, 세트가 끝나면 항상 코트체인지가 일어나야 한다.
-          // 기존 코드는 이 케이스를 누락했었다.
           if (config.courtChange === 'auto') manualCourtChange(false, false);
         } else {
           switchServer();
@@ -906,10 +1027,6 @@
     }
 
     function manualCourtChange(announce = true, recordHistory = true) {
-      // recordHistory: 자동 코트체인지(게임 승리/타이브레이크 6포인트마다)는
-      // addPoint()에서 이미 saveState()를 호출했으므로 여기서 또 저장하면
-      // UNDO 스택에 기록이 중복 push되어 실행취소가 한 번에 안 되는 버그가 발생함.
-      // 사용자가 CHANGE COURT 버튼을 직접 눌렀을 때만(recordHistory=true) 별도 저장.
       if (recordHistory) saveState();
       state.courtLeftTeam = (state.courtLeftTeam === 'A') ? 'B' : 'A';
       saveStateToStorage();
@@ -917,7 +1034,7 @@
       if (announce) speak("Change ends");
     }
 
-    function playWakeUpSound() {
+    function playWakeUpSound(durationMs = 600) {
       return new Promise((resolve) => {
         try {
           if (!audioCtx) {
@@ -927,76 +1044,91 @@
             audioCtx.resume();
           }
 
+          const durationSec = durationMs / 1000;
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
 
           osc.type = 'sine';
           osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+          
+          // 블루투스 슬립모드를 깨우기 위한 거의 들리지 않는 미세한 오디오 신호 재생
+          gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.001, audioCtx.currentTime + durationSec);
 
           osc.connect(gain);
           gain.connect(audioCtx.destination);
 
           osc.start();
-          osc.stop(audioCtx.currentTime + 0.3);
+          osc.stop(audioCtx.currentTime + durationSec);
 
-          setTimeout(resolve, 250);
+          setTimeout(resolve, durationMs);
         } catch (e) {
-          resolve();
+          setTimeout(resolve, durationMs);
         }
       });
     }
 
     async function speak(text) {
-      await playWakeUpSound();
+      // 600ms 동안 무음 신호를 내보내 스피커를 깨운 후 TTS 재생
+      await playWakeUpSound(600);
 
       if ('speechSynthesis' in window) {
         try {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'en-GB';
-          utterance.rate = 0.90;
-          utterance.pitch = 0.95;
+          utterance.lang = 'en-US';
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
           
           const voices = window.speechSynthesis.getVoices();
-          const gbVoice = voices.find(v => v.lang === 'en-GB' || v.lang.includes('en_GB'));
-          if (gbVoice) utterance.voice = gbVoice;
+          const usFemaleVoice = voices.find(v => 
+            v.lang.includes('en-US') && (
+              v.name.includes('Google US English') || 
+              v.name.includes('Samantha') || 
+              v.name.includes('Zira') || 
+              v.name.includes('Female') ||
+              v.name.includes('Victoria')
+            )
+          ) || voices.find(v => v.lang.includes('en-US') || v.lang.includes('en_US'));
+
+          if (usFemaleVoice) utterance.voice = usFemaleVoice;
 
           window.speechSynthesis.speak(utterance);
         } catch (e) {}
       }
     }
 
-    function speakCall() {
+    function speakCall(prefix = "") {
+      let callText = "";
       if (state.isTiebreak) {
-        speak(`${state.ptsA}, ${state.ptsB}`);
-        return;
-      }
-
-      const pA = state.ptsA;
-      const pB = state.ptsB;
-
-      if (pA >= 3 && pB >= 3) {
-        if (pA === pB) {
-          speak("Deuce");
-        } else if (pA > pB) {
-          const name = config.type === 'singles' ? getLastName(config.playersA[0]) : "Team A";
-          speak(`Advantage, ${name}`);
-        } else {
-          const name = config.type === 'singles' ? getLastName(config.playersB[0]) : "Team B";
-          speak(`Advantage, ${name}`);
-        }
+        callText = `${state.ptsA}, ${state.ptsB}`;
       } else {
-        if (pA === pB) {
-          if (pointTerms[pA] === "Love") speak("Love All");
-          else speak(`${pointTerms[pA]}-All`);
+        const pA = state.ptsA;
+        const pB = state.ptsB;
+
+        if (pA >= 3 && pB >= 3) {
+          if (pA === pB) {
+            callText = "Deuce";
+          } else if (pA > pB) {
+            const name = config.type === 'singles' ? getLastName(config.playersA[0]) : "Team A";
+            callText = `Advantage, ${name}`;
+          } else {
+            const name = config.type === 'singles' ? getLastName(config.playersB[0]) : "Team B";
+            callText = `Advantage, ${name}`;
+          }
         } else {
-          const sPts = state.currentServerTeam === 'A' ? pA : pB;
-          const rPts = state.currentServerTeam === 'A' ? pB : pA;
-          speak(`${pointTerms[sPts]}, , ${pointTerms[rPts]}`);
+          if (pA === pB) {
+            if (pointTerms[pA] === "Love") callText = "Love All";
+            else callText = `${pointTerms[pA]}-All`;
+          } else {
+            const sPts = state.currentServerTeam === 'A' ? pA : pB;
+            const rPts = state.currentServerTeam === 'A' ? pB : pA;
+            callText = `${pointTerms[sPts]}, , ${pointTerms[rPts]}`;
+          }
         }
       }
+
+      speak(prefix + callText);
     }
 
     function formatScore(pts, oppPts) {
@@ -1030,7 +1162,16 @@
       const leftTeam = state.courtLeftTeam;
       const rightTeam = (leftTeam === 'A') ? 'B' : 'A';
 
-      // 화살표 방향 업데이트 (왼쪽 코트 팀은 ◀, 오른쪽 코트 팀은 ▶)
+      const cardA = document.getElementById('card-team-a');
+      const cardB = document.getElementById('card-team-b');
+      if (leftTeam === 'A') {
+        cardA.style.order = 1;
+        cardB.style.order = 2;
+      } else {
+        cardA.style.order = 2;
+        cardB.style.order = 1;
+      }
+
       document.getElementById('arrow-a').innerText = (leftTeam === 'A') ? '◀' : '▶';
       document.getElementById('arrow-b').innerText = (leftTeam === 'B') ? '◀' : '▶';
 
