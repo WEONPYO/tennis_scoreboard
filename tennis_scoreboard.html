@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Tennis Scoreboard - Custom Swipes</title>
+  <title>Tennis Scoreboard - Ultimate Keep-Alive</title>
   <style>
     :root {
       --bg-color: #0c1911;
@@ -438,7 +438,6 @@
       cursor: pointer; margin-top: 15px; font-size: 0.9rem;
     }
 
-    /* Custom Confirm Dialog Modal */
     .confirm-modal {
       display: none;
       position: fixed;
@@ -494,9 +493,24 @@
       color: #fff;
       border: 1px solid #2e5941 !important;
     }
+
+    /* 화면 꺼짐 방지용 1x1 숨김 비디오 */
+    #wakelock-video {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      top: 0;
+      left: 0;
+      opacity: 0.01;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
+
+  <!-- 화면 꺼짐 방지 트릭용 요소 (Audio & Video) -->
+  <audio id="silent-audio" loop style="display:none;"></audio>
+  <video id="wakelock-video" loop playsinline muted></video>
 
   <div id="fs-overlay">
     <h2>WP TENNIS SCOREBOARD</h2>
@@ -705,6 +719,50 @@
         </div>
       </div>
 
+      <h3>Smartwatch / Media Key Controls</h3>
+      <div class="swipe-grid">
+        <div class="setting-group">
+          <label>Next Track (다음곡)</label>
+          <select id="media-next">
+            <option value="right_score" selected>우측팀 득점</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Previous Track (이전곡)</label>
+          <select id="media-prev">
+            <option value="left_score" selected>좌측팀 득점</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Pause (일시정지)</label>
+          <select id="media-pause">
+            <option value="undo" selected>Correction (점수 정정)</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="court_change">코트 체인지</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>Play (재생)</label>
+          <select id="media-play">
+            <option value="court_change" selected>코트 체인지</option>
+            <option value="right_score">우측팀 득점</option>
+            <option value="left_score">좌측팀 득점</option>
+            <option value="undo">Correction (점수 정정)</option>
+            <option value="none">사용 안 함</option>
+          </select>
+        </div>
+      </div>
+
       <button class="btn-save" id="btn-save-settings">Apply & Reset Match</button>
     </div>
   </div>
@@ -734,6 +792,12 @@
         down: 'left_score',
         left: 'court_change',
         right: 'undo'
+      },
+      mediaKeys: {
+        nexttrack: 'right_score',
+        previoustrack: 'left_score',
+        pause: 'undo',
+        play: 'court_change'
       }
     };
 
@@ -761,7 +825,7 @@
     let touchEndX = 0;
     let touchEndY = 0;
 
-    // --- Screen Wake Lock 관련 함수 ---
+    // --- 1. Screen Wake Lock API ---
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
@@ -770,23 +834,82 @@
             wakeLock = null; 
           });
         }
-      } catch (err) {
-        // 브라우저 권한 제한 또는 절전 모드 특성에 의한 오류 무시
+      } catch (err) {}
+    }
+
+    // --- 2. HTML5 Video-based Wake Lock Fallback (iOS Safari 및 강력한 꺼짐 방지) ---
+    function enableVideoWakeLock() {
+      const videoEl = document.getElementById('wakelock-video');
+      if (videoEl) {
+        if (!videoEl.src) {
+          // 초경량 1x1 픽셀 무음 비디오 데이터 URI
+          videoEl.src = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQAAAAptZGF0AAAAAAYAAAAA";
+        }
+        videoEl.play().catch(e => {});
       }
     }
 
-    // 탭을 전환했다가 다시 돌아왔을 때 Wake Lock 재요청
-    document.addEventListener('visibilitychange', async () => {
-      if (wakeLock !== null && document.visibilityState === 'visible') {
-        await requestWakeLock();
+    // --- 통합 화면 꺼짐 방지 매니저 ---
+    async function keepScreenAlive() {
+      await requestWakeLock();
+      enableVideoWakeLock();
+      
+      const audioEl = document.getElementById('silent-audio');
+      if (audioEl && audioEl.paused) {
+        audioEl.play().catch(e => {});
+      }
+    }
+
+    // 10초마다 상태 확인 후 해제되어 있으면 자동 재활성화
+    setInterval(() => {
+      keepScreenAlive();
+    }, 10000);
+
+    // --- Media Session Setup ---
+    function setupMediaSession() {
+      const silentAudioURI = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      const audioEl = document.getElementById('silent-audio');
+      if (audioEl) {
+        audioEl.src = silentAudioURI;
+        audioEl.play().catch(e => {});
+      }
+
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: "Tennis Scoreboard Active",
+          artist: "Screen Always On",
+          album: "WP Scoreboard",
+          artwork: [
+            { src: 'https://via.placeholder.com/96', sizes: '96x96', type: 'image/png' }
+          ]
+        });
+
+        const actionHandlers = [
+          ['nexttrack', () => executeControlAction(config.mediaKeys.nexttrack)],
+          ['previoustrack', () => executeControlAction(config.mediaKeys.previoustrack)],
+          ['pause', () => executeControlAction(config.mediaKeys.pause)],
+          ['play', () => executeControlAction(config.mediaKeys.play)],
+          ['playpause', () => executeControlAction(config.mediaKeys.play)]
+        ];
+
+        for (const [action, handler] of actionHandlers) {
+          try {
+            navigator.mediaSession.setActionHandler(action, handler);
+          } catch (error) {}
+        }
+      }
+    }
+
+    // 화면 복귀 / 탭 전환 시 자동 재활성화
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        keepScreenAlive();
       }
     });
 
-    // 화면 터치 시 Wake Lock이 해제되어 있다면 즉시 다시 요청
+    // 화면 모든 터치 시 지속적으로 Wake Lock 재갱신
     window.addEventListener('touchstart', () => {
-      if (!wakeLock) {
-        requestWakeLock();
-      }
+      keepScreenAlive();
     }, { passive: true });
 
     function showCustomConfirm(message, onConfirm) {
@@ -854,19 +977,21 @@
       }
     }
 
-    function startFullscreenApp() {
+    async function startFullscreenApp() {
       toggleFullscreen();
-      requestWakeLock();
+      await keepScreenAlive();
+      setupMediaSession();
       document.getElementById('fs-overlay').style.display = 'none';
       render();
     }
 
-    window.onload = () => {
+    window.onload = async () => {
       loadStorage();
       setupEvents();
       setupSwipeEvents();
       populateSettingsModal();
-      requestWakeLock(); // 페이지 최초 로드 시 화면 잠금 해제 요청
+      await keepScreenAlive();
+      setupMediaSession();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
       }
@@ -931,10 +1056,10 @@
         action = deltaY < 0 ? config.swipes.up : config.swipes.down;
       }
 
-      executeSwipeAction(action);
+      executeControlAction(action);
     }
 
-    function executeSwipeAction(action) {
+    function executeControlAction(action) {
       const leftTeam = state.courtLeftTeam;
       const rightTeam = (leftTeam === 'A') ? 'B' : 'A';
 
@@ -974,6 +1099,20 @@
       document.getElementById('swipe-left').value = config.swipes.left || 'court_change';
       document.getElementById('swipe-right').value = config.swipes.right || 'undo';
 
+      if (!config.mediaKeys) {
+        config.mediaKeys = {
+          nexttrack: 'right_score',
+          previoustrack: 'left_score',
+          pause: 'undo',
+          play: 'court_change'
+        };
+      }
+
+      document.getElementById('media-next').value = config.mediaKeys.nexttrack || 'right_score';
+      document.getElementById('media-prev').value = config.mediaKeys.previoustrack || 'left_score';
+      document.getElementById('media-pause').value = config.mediaKeys.pause || 'undo';
+      document.getElementById('media-play').value = config.mediaKeys.play || 'court_change';
+
       togglePlayerInputs();
     }
 
@@ -1007,7 +1146,15 @@
         right: document.getElementById('swipe-right').value
       };
 
+      config.mediaKeys = {
+        nexttrack: document.getElementById('media-next').value,
+        previoustrack: document.getElementById('media-prev').value,
+        pause: document.getElementById('media-pause').value,
+        play: document.getElementById('media-play').value
+      };
+
       saveConfigToStorage();
+      setupMediaSession();
       resetMatch();
     }
 
